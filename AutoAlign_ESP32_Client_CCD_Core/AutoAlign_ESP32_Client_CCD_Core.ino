@@ -69,6 +69,10 @@ int MinMotorDelayTime = 320;
 long MinMotroStep = 20;
 int M_Level = 10;
 
+int direction_X = 0;
+int direction_Y = 0;
+int direction_Z = 0;
+
 int xyz = 0;
 
 long X_Pos_Record = 0;
@@ -686,6 +690,18 @@ void setup()
     MSGOutput("EEPROM(" + String(i) + ") - " + eepromString);
   }
 
+  eepromString = ReadInfoEEPROM(24, 8);
+  direction_X = eepromString.toInt();
+  MSGOutput("direction_X: " + String(direction_X));
+
+  eepromString = ReadInfoEEPROM(32, 8);
+  direction_Y = eepromString.toInt();
+  MSGOutput("direction_Y: " + String(direction_Y));
+
+  eepromString = ReadInfoEEPROM(40, 8);
+  direction_Z = eepromString.toInt();
+  MSGOutput("direction_Z: " + String(direction_Z));
+
   eepromString = ReadInfoEEPROM(48, 8);
   delayBetweenStep_X = eepromString.toInt();
   MSGOutput("delayBetweenStep_X: " + String(delayBetweenStep_X));
@@ -983,6 +999,62 @@ int Function_Classification(String cmd, int ButtonSelected)
     // }
 
     // //Set Manual Control Motor Speed
+    else if (Contains(cmd, "DIR "))
+    {
+      cmd.remove(0, 4);
+
+      if (Contains(cmd, "X"))
+      {
+        cmd.remove(0, 2);
+        direction_X = cmd.toInt();
+        WR_EEPROM(24, cmd);
+        Serial.println("Motor Direction X:" + String(direction_X));
+      }
+      else if (Contains(cmd, "Y"))
+      {
+        cmd.remove(0, 2);
+        direction_Y = cmd.toInt();
+        WR_EEPROM(32, cmd);
+        Serial.println("Motor Direction Y:" + String(direction_Y));
+      }
+      else if (Contains(cmd, "Z"))
+      {
+        cmd.remove(0, 2);
+        direction_Z = cmd.toInt();
+        WR_EEPROM(40, cmd);
+        Serial.println("Motor Direction Z:" + String(direction_Z));
+      }
+    }
+
+    // //Set Manual Control Motor Speed
+    else if (Contains(cmd, "SPD "))
+    {
+      cmd.remove(0, 4);
+
+      if (Contains(cmd, "X"))
+      {
+        cmd.remove(0, 2);
+        delayBetweenStep_X = cmd.toInt();
+        WR_EEPROM(48, cmd);
+      }
+      else if (Contains(cmd, "Y"))
+      {
+        cmd.remove(0, 2);
+        delayBetweenStep_Y = cmd.toInt();
+        WR_EEPROM(56, cmd);
+
+      }
+      else if (Contains(cmd, "Z"))
+      {
+        cmd.remove(0, 2);
+        delayBetweenStep_Z = cmd.toInt();
+        WR_EEPROM(64, cmd);
+      }
+
+      Serial.println("Set Motor Speed:" + cmd);
+    }
+
+    // //Set Manual Control Motor Speed
     else if (Contains(cmd, "Set_Motor_Speed_"))
     {
       cmd.remove(0, 16);
@@ -1227,8 +1299,9 @@ int Function_Excecutation(String cmd, int cmd_No)
         while (true)
         {
           MotorCC = MotorCC_Z;
-          Move_Motor_Cont(Z_DIR_Pin, Z_STP_Pin, false, 400, delayBetweenStep_Z);
-          MotorCC_Z = false;
+          bool dir = direction_Z == 0 ? false : true;
+          Move_Motor_Cont(Z_DIR_Pin, Z_STP_Pin, dir, 400, delayBetweenStep_Z);
+          MotorCC_Z = dir;
 
           if (cmd == "")
           {
@@ -1246,17 +1319,15 @@ int Function_Excecutation(String cmd, int cmd_No)
           }
         }
         DataOutput();
-        // Serial.println("Position : " + String(X_Pos_Now) + ", " + String(Y_Pos_Now) + ", " + String(Z_Pos_Now));
         cmd_No = 0;
         break;
       case 103:
         while (true)
         {
           MotorCC = MotorCC_Z;
-          Move_Motor_Cont(Z_DIR_Pin, Z_STP_Pin, true, 400, delayBetweenStep_Z);
-          MotorCC_Z = true;
-
-          // DataOutput();
+          bool dir = direction_Z == 0 ? true : false;
+          Move_Motor_Cont(Z_DIR_Pin, Z_STP_Pin, dir, 400, delayBetweenStep_Z);
+          MotorCC_Z = dir;
 
           if (cmd == "")
           {
@@ -1274,7 +1345,6 @@ int Function_Excecutation(String cmd, int cmd_No)
           }
         }
         DataOutput();
-        // Serial.println("Position : " + String(X_Pos_Now) + ", " + String(Y_Pos_Now) + ", " + String(Z_Pos_Now));
         cmd_No = 0;
         break;
 
@@ -1284,8 +1354,9 @@ int Function_Excecutation(String cmd, int cmd_No)
         while (true)
         {
           MotorCC = MotorCC_X;
-          Move_Motor_Cont(X_DIR_Pin, X_STP_Pin, false, 400, delayBetweenStep_X);
-          MotorCC_X = false;
+          bool dir = direction_X == 0 ? false : true;
+          Move_Motor_Cont(X_DIR_Pin, X_STP_Pin, dir, 400, delayBetweenStep_X);
+          MotorCC_X = dir;
 
           // DataOutput();
 
@@ -1305,7 +1376,6 @@ int Function_Excecutation(String cmd, int cmd_No)
           }
         }
         DataOutput();
-        // Serial.println("Position : " + String(X_Pos_Now) + ", " + String(Y_Pos_Now) + ", " + String(Z_Pos_Now));
         cmd_No = 0;
         break;
         //X+ - cont
@@ -1314,10 +1384,9 @@ int Function_Excecutation(String cmd, int cmd_No)
         while (true)
         {
           MotorCC = MotorCC_X;
-          Move_Motor_Cont(X_DIR_Pin, X_STP_Pin, true, 400, delayBetweenStep_X);
-          MotorCC_X = true;
-
-          // DataOutput();
+          bool dir = direction_X == 0 ? true : false;
+          Move_Motor_Cont(X_DIR_Pin, X_STP_Pin, dir, 400, delayBetweenStep_X);
+          MotorCC_X = dir;
 
           if (cmd == "")
           {
@@ -1335,7 +1404,6 @@ int Function_Excecutation(String cmd, int cmd_No)
           }
         }
         DataOutput();
-        // Serial.println("Position : " + String(X_Pos_Now) + ", " + String(Y_Pos_Now) + ", " + String(Z_Pos_Now));
         cmd_No = 0;
         break;
 
@@ -1345,10 +1413,9 @@ int Function_Excecutation(String cmd, int cmd_No)
         while (true)
         {
           MotorCC = MotorCC_Y;
-          Move_Motor_Cont(Y_DIR_Pin, Y_STP_Pin, false, 400, delayBetweenStep_Y);
-          MotorCC_Y = false;
-
-          // DataOutput();
+          bool dir = direction_Y == 0 ? false : true;
+          Move_Motor_Cont(Y_DIR_Pin, Y_STP_Pin, dir, 400, delayBetweenStep_Y);
+          MotorCC_Y = dir;
 
           if (cmd == "")
           {
@@ -1366,7 +1433,6 @@ int Function_Excecutation(String cmd, int cmd_No)
           }
         }
         DataOutput();
-        // Serial.println("Position : " + String(X_Pos_Now) + ", " + String(Y_Pos_Now) + ", " + String(Z_Pos_Now));
         cmd_No = 0;
         break;
 
@@ -1376,10 +1442,9 @@ int Function_Excecutation(String cmd, int cmd_No)
         while (true)
         {
           MotorCC = MotorCC_Y;
-          Move_Motor_Cont(Y_DIR_Pin, Y_STP_Pin, true, 400, delayBetweenStep_Y);
-          MotorCC_Y = true;
-
-          // DataOutput();
+          bool dir = direction_Y == 0 ? true : false;
+          Move_Motor_Cont(Y_DIR_Pin, Y_STP_Pin, dir, 400, delayBetweenStep_Y);
+          MotorCC_Y = dir;
 
           if (cmd == "")
           {
