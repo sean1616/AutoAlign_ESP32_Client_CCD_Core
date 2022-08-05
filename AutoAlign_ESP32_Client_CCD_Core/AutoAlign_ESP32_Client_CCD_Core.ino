@@ -83,6 +83,18 @@ long Y_Pos_Now = 0;
 long Z_Pos_Now = 0;
 long Z_Pos_reLoad = 0;
 
+typedef struct struct_Pos_Data {
+    long X_Pos = 0;
+    long Y_Pos = 0;
+    long Z_Pos = 0;
+} struct_Pos_Data;
+
+// Create a struct_message
+struct_Pos_Data Pos_1_Record;
+struct_Pos_Data Pos_2_Record;
+struct_Pos_Data Pos_3_Record;
+struct_Pos_Data Pos_4_Record;
+
 // int X_rotator_steps = 2;
 // int Y_rotator_steps = 2;
 // int Z_rotator_steps = 20;
@@ -320,6 +332,57 @@ void step(byte stepperPin, long steps, int delayTime, byte dirPin, bool dir)
   }
 }
 
+
+void Move_Motor_abs(int xyz, long Target)
+{
+  String axis = "";
+  long Pos_Now = 0;
+  switch (xyz)
+  {
+  case 0:
+    MotorDir_Pin = X_DIR_Pin;
+    MotorSTP_Pin = X_STP_Pin;
+    Pos_Now = X_Pos_Now;
+    delayBetweenStep = delayBetweenStep_X;
+    axis = "X";
+    break;
+  case 1:
+    MotorDir_Pin = Y_DIR_Pin;
+    MotorSTP_Pin = Y_STP_Pin;
+    Pos_Now = Y_Pos_Now;
+    delayBetweenStep = delayBetweenStep_Y;
+    axis = "Y";
+    break;
+  case 2:
+    MotorDir_Pin = Z_DIR_Pin;
+    MotorSTP_Pin = Z_STP_Pin;
+    Pos_Now = Z_Pos_Now;
+    delayBetweenStep = delayBetweenStep_Z;
+    axis = "Z";
+    break;
+  }
+
+  if (Target - Pos_Now < 0)
+    MotorCC = false;
+  else if (Target - Pos_Now > 0)
+    MotorCC = true;
+  else
+    return;
+
+  MinMotroStep = abs(Target - Pos_Now);
+
+  MSGOutput(axis + " Go to position: " + String(Target) + ", origin position: " + String(Pos_Now));
+
+  Move_Motor(MotorDir_Pin, MotorSTP_Pin, MotorCC, MinMotroStep, delayBetweenStep, 0);
+}
+
+void Move_Motor_abs_all(int x, int y, int z)
+{
+  Move_Motor_abs(0, x);
+  Move_Motor_abs(1, y);
+  Move_Motor_abs(2, z);
+}
+
 int KeyValueConverter()
 {
   int keyNo = -1;
@@ -354,6 +417,11 @@ int KeyValueConverter()
 
     delay(2);
 
+    if(!digitalRead(R_0))
+    {
+      keyValueSum += 1000;
+    }
+
     if (!digitalRead(C_1))
     {
       keyValueSum += 1;
@@ -378,7 +446,6 @@ int KeyValueConverter()
 
   if (keyValueSum != 0)
   {
-
     switch (keyValueSum)
     {
     case 1:
@@ -408,6 +475,35 @@ int KeyValueConverter()
     case 13:
       keyNo = 9;
       break;
+
+    case 1001:
+      keyNo = keyNo; /* Z- */
+      break;
+    case 1002:
+      keyNo = keyNo; /* X+ */
+      break;
+    case 1003:
+      keyNo = keyNo; /* Z+ */
+      break;
+    case 1004:
+      keyNo = keyNo; /* Y+ */
+      break;
+    case 1005:
+      keyNo = keyNo; /* X- */
+      break;
+    case 1006:
+      keyNo = keyNo; /* Y- */
+      break;
+    case 1011:
+      keyNo = 1007; /* 7 */
+      break;
+    case 1012:
+      keyNo = 1008; /* 8 */
+      break;
+    case 1013:
+      keyNo = 1009; /* 9 */
+      break;
+
     default:
       keyNo = -1;
       break;
@@ -485,12 +581,23 @@ void LCD_Encoder_Selected()
 
 }
 
+int Emer_Count = 0;
 void EmergencyStop()
 {
   isStop = true;
 
   Serial.println("EmergencyStop");
+  Emer_Count ++;
   digitalWrite(Tablet_PD_mode_Trigger_Pin, true); //false is PD mode, true is Servo mode
+
+  if(Emer_Count > 40)
+  {
+    X_Pos_Now = 0;
+    Y_Pos_Now = 0;
+    Z_Pos_Now = 0;
+    Serial.println("Reset Position");
+    Emer_Count=0;
+  }
 
   isLCD = true;
   PageLevel = 0;
@@ -761,55 +868,6 @@ void loop()
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
-void Move_Motor_abs(int xyz, long Target)
-{
-  String axis = "";
-  long Pos_Now = 0;
-  switch (xyz)
-  {
-  case 0:
-    MotorDir_Pin = X_DIR_Pin;
-    MotorSTP_Pin = X_STP_Pin;
-    Pos_Now = X_Pos_Now;
-    axis = "X";
-    break;
-  case 1:
-    MotorDir_Pin = Y_DIR_Pin;
-    MotorSTP_Pin = Y_STP_Pin;
-    Pos_Now = Y_Pos_Now;
-    axis = "Y";
-    break;
-  case 2:
-    MotorDir_Pin = Z_DIR_Pin;
-    MotorSTP_Pin = Z_STP_Pin;
-    Pos_Now = Z_Pos_Now;
-    axis = "Z";
-    break;
-  }
-
-  if (Target - Pos_Now < 0)
-    MotorCC = false;
-  else if (Target - Pos_Now > 0)
-    MotorCC = true;
-  else
-    return;
-
-  delayBetweenStep = 20;
-  MinMotroStep = abs(Target - Pos_Now);
-
-  MSGOutput(axis + " Go to position: " + String(Target) + ", origin position: " + String(Pos_Now));
-
-  //byte dir_pin, byte stp_pin, bool dirt, long moveSteps, int delayStep, int stableDelay
-  Move_Motor(MotorDir_Pin, MotorSTP_Pin, MotorCC, MinMotroStep, delayBetweenStep, 0);
-}
-
-void Move_Motor_abs_all(int x, int y, int z)
-{
-  Move_Motor_abs(0, x);
-  Move_Motor_abs(1, y);
-  Move_Motor_abs(2, z);
-}
-
 void Move_Motor(byte dir_pin, byte stp_pin, bool dirt, long moveSteps, int delayStep, int stableDelay)
 {
   MotorCC = dirt;
@@ -998,6 +1056,11 @@ int Function_Classification(String cmd, int ButtonSelected)
     //   MSGOutput("Set_MotorStepRatio:" + String(MotorStepRatio));
     // }
 
+    else if (Contains(cmd, "ID?"))
+    {
+      Serial.println("CCD");
+    }
+
     // //Set Manual Control Motor Speed
     else if (Contains(cmd, "DIR "))
     {
@@ -1082,38 +1145,64 @@ int Function_Classification(String cmd, int ButtonSelected)
       Serial.println("Set Manual Control Motor Speed:" + cmd);
     }
 
+     else if (Contains(cmd, "SAVE "))
+     {
+        cmd.remove(0, 5);
+
+        if (Contains(cmd, "1"))
+        {
+          Pos_1_Record.X_Pos = X_Pos_Now;
+          Pos_1_Record.Y_Pos = Y_Pos_Now;
+          Pos_1_Record.Z_Pos = Z_Pos_Now;
+          WR_EEPROM(72, String(X_Pos_Now));
+          WR_EEPROM(80, String(Y_Pos_Now));
+          WR_EEPROM(88, String(Z_Pos_Now));
+        }
+        else if (Contains(cmd, "2"))
+        {
+          Pos_2_Record.X_Pos = X_Pos_Now;
+          Pos_2_Record.Y_Pos = Y_Pos_Now;
+          Pos_2_Record.Z_Pos = Z_Pos_Now;
+          WR_EEPROM(96, String(X_Pos_Now));
+          WR_EEPROM(104, String(Y_Pos_Now));
+          WR_EEPROM(112, String(Z_Pos_Now));
+        }
+        else if (Contains(cmd, "3"))
+        {
+          Pos_3_Record.X_Pos = X_Pos_Now;
+          Pos_3_Record.Y_Pos = Y_Pos_Now;
+          Pos_3_Record.Z_Pos = Z_Pos_Now;
+          WR_EEPROM(120, String(X_Pos_Now));
+          WR_EEPROM(128, String(Y_Pos_Now));
+          WR_EEPROM(136, String(Z_Pos_Now));
+        }
+        else if (Contains(cmd, "4"))
+        {
+          Pos_4_Record.X_Pos = X_Pos_Now;
+          Pos_4_Record.Y_Pos = Y_Pos_Now;
+          Pos_4_Record.Z_Pos = Z_Pos_Now;
+          WR_EEPROM(144, String(X_Pos_Now));
+          WR_EEPROM(152, String(Y_Pos_Now));
+          WR_EEPROM(160, String(Z_Pos_Now));
+        }
+
+        Serial.println("Save Pos");
+        Serial.println("X:" + String(X_Pos_Now));
+        Serial.println("Y:" + String(Y_Pos_Now));
+        Serial.println("Z:" + String(Z_Pos_Now));
+     }
+
     //Command No.
     else if (Contains(cmd, "cmd"))
     {
       cmd.remove(0, 3);
       cmd_No = cmd.toInt();
       delay(10);
-
-      //          cmd_No = 4;  //Auto-Align
-      //          cmd_No = 5;   //Fine scan
-      //          cmd_No = 6;   //Auto curing
-      //          cmd_No = 7;  //To re-load position
-      //          cmd_No = 8;  //To Home
-      //          cmd_No = 9;  //To Home
-      //          cmd_No = 10;  //To Home
-      //          cmd_No = 16;  //Set reLoad
-      //          cmd_No = 17;  //Set home
-      //          cmd_No = 18;  //Set Z target
-      //          cmd_No = 19;  //Get ref
-      //          cmd_No = 20;  //Spiral
-      //          cmd_No = 21;  //Keep print IL to PC
-      //          cmd_No = 22;  //Scan X
-      //          cmd_No = 23;  //Scan Y
-      //          cmd_No = 24;  //Scan Z
-    }
-
-    //Action : Reply
-    if (true)
-    {
     }
   }
   else if (ButtonSelected >= 0)
   {
+    Emer_Count = 0;   //Reset Emergency Count 
     //Keyboard No. to Cmd Set No.
     switch (ButtonSelected)
     {
@@ -1128,6 +1217,46 @@ int Function_Classification(String cmd, int ButtonSelected)
     case 9:
       cmd_No = 3;
       break;
+
+    case 1007:
+      Pos_1_Record.X_Pos = X_Pos_Now;
+      Pos_1_Record.Y_Pos = Y_Pos_Now;
+      Pos_1_Record.Z_Pos = Z_Pos_Now;
+      WR_EEPROM(72, String(X_Pos_Now));
+      WR_EEPROM(80, String(Y_Pos_Now));
+      WR_EEPROM(88, String(Z_Pos_Now));
+      Serial.println("Save Pos 1");
+      break;
+
+    case 1008:
+      Pos_2_Record.X_Pos = X_Pos_Now;
+      Pos_2_Record.Y_Pos = Y_Pos_Now;
+      Pos_2_Record.Z_Pos = Z_Pos_Now;
+      WR_EEPROM(96, String(X_Pos_Now));
+      WR_EEPROM(104, String(Y_Pos_Now));
+      WR_EEPROM(112, String(Z_Pos_Now));
+      Serial.println("Save Pos 2");
+      break;
+
+    case 1009:
+      Pos_3_Record.X_Pos = X_Pos_Now;
+      Pos_3_Record.Y_Pos = Y_Pos_Now;
+      Pos_3_Record.Z_Pos = Z_Pos_Now;
+      WR_EEPROM(120, String(X_Pos_Now));
+      WR_EEPROM(128, String(Y_Pos_Now));
+      WR_EEPROM(136, String(Z_Pos_Now));
+      Serial.println("Save Pos 3");
+      break;
+
+    // case 1006:
+    //   Pos_4_Record.X_Pos = X_Pos_Now;
+    //   Pos_4_Record.Y_Pos = Y_Pos_Now;
+    //   Pos_4_Record.Z_Pos = Z_Pos_Now;
+    //   WR_EEPROM(144, String(X_Pos_Now));
+    //   WR_EEPROM(152, String(Y_Pos_Now));
+    //   WR_EEPROM(160, String(Z_Pos_Now));
+    //   Serial.println("Save Pos 4");
+    //   break;
 
     default:
       cmd_No = ButtonSelected;
@@ -1154,22 +1283,26 @@ int Function_Excecutation(String cmd, int cmd_No)
     {
       switch (cmd_No)
       {
-        //Functions: Auto Align
+        //Function 1: Auto Align
       case 1: /* Auto Align */
-        if (true)
-        {
-        
-        }
+        Move_Motor_abs_all(Pos_1_Record.X_Pos, Pos_1_Record.Y_Pos, Pos_1_Record.Z_Pos);
         cmd_No = 0;
         break;
 
-        //Functions: Fine Scan
+        //Function 2: Fine Scan
       case 2: /* Fine Scan */
+        Move_Motor_abs_all(Pos_2_Record.X_Pos, Pos_2_Record.Y_Pos, Pos_2_Record.Z_Pos);
         cmd_No = 0;
         break;
 
-      //Functions: Auto Curing
+      //Function 3: Auto Curing
       case 3: /* Auto Curing */
+        Move_Motor_abs_all(Pos_3_Record.X_Pos, Pos_3_Record.Y_Pos, Pos_3_Record.Z_Pos);
+        cmd_No = 0;
+        break;
+
+      case 1006: /* Auto Curing */
+        Move_Motor_abs_all(Pos_4_Record.X_Pos, Pos_4_Record.Y_Pos, Pos_4_Record.Z_Pos);
         cmd_No = 0;
         break;
 
@@ -1289,7 +1422,7 @@ int Function_Excecutation(String cmd, int cmd_No)
       }
     }
 
-    //Functions: Motion
+    //Function: Motion
     if (cmd_No > 100)
       switch (cmd_No)
       {
