@@ -332,7 +332,6 @@ void step(byte stepperPin, long steps, int delayTime, byte dirPin, bool dir)
   }
 }
 
-
 void Move_Motor_abs(int xyz, long Target)
 {
   String axis = "";
@@ -381,6 +380,211 @@ void Move_Motor_abs_all(int x, int y, int z)
   Move_Motor_abs(0, x);
   Move_Motor_abs(1, y);
   Move_Motor_abs(2, z);
+}
+
+void Move_Motor_abs_all_sync(int Target_x, int Target_y, int Target_z)
+{
+  long delta_steps_X = Target_x - X_Pos_Now;
+  long delta_steps_y = Target_y - Y_Pos_Now;
+  long delta_steps_z = Target_z - Z_Pos_Now;
+
+  long steps_X_abs = 0;
+  long steps_Y_abs = 0;
+  long steps_Z_abs = 0;
+
+  if (delta_steps_X < 0)
+    MotorCC_X = false;
+  else if (delta_steps_X > 0)
+    MotorCC_X = true;
+
+  if (delta_steps_y < 0)
+    MotorCC_Y = false;
+  else if (delta_steps_y > 0)
+    MotorCC_Y = true;
+
+  if (delta_steps_z < 0)
+    MotorCC_Z = false;
+  else if (delta_steps_z > 0)
+    MotorCC_Z = true;
+  
+  steps_X_abs = abs(delta_steps_X);
+  steps_Y_abs = abs(delta_steps_y);
+  steps_Z_abs = abs(delta_steps_z);
+
+  digitalWrite(X_DIR_Pin, MotorCC_X);
+  digitalWrite(Y_DIR_Pin, MotorCC_Y);
+  digitalWrite(Z_DIR_Pin, MotorCC_Z);
+  delay(2);
+
+  bool isX = steps_X_abs > 0 ? true : false;
+  bool isY = steps_Y_abs > 0 ? true : false;
+  bool isZ = steps_Z_abs > 0 ? true : false;
+
+  
+  long listXYZSteps[] = {steps_X_abs, steps_Y_abs, steps_Z_abs};
+  long listStepsSort[] = {steps_X_abs, steps_Y_abs, steps_Z_abs};
+
+  //Bubble sort
+  size_t n = 2;
+  for (size_t i = 0; i < 2; i++)
+  {
+    for (size_t j = 0; j < n; j++)
+    {
+      if(listStepsSort[j] > listStepsSort[j+1])
+      {
+        long temp = listStepsSort[j+1];
+        listStepsSort[j+1]=listStepsSort[j];
+        listStepsSort[j]=temp;
+      }
+    }
+    n--;    
+  }
+  
+  long minSteps = listStepsSort[0];
+  long maxSteps = listStepsSort[2];
+
+  Serial.println("x, y, z steps sort:" );
+  Serial.println(String(listStepsSort[0]));
+  Serial.println(String(listStepsSort[1]));
+  Serial.println(String(listStepsSort[2]));
+
+  if (true)
+  {
+    for (size_t P = 0; P < 3; P++)
+    {
+      long nowSteps = listStepsSort[P];
+      Serial.println("nowSteps" + String(nowSteps));
+
+      if(nowSteps <= 0) continue;
+
+      if(listXYZSteps[0] > 0 && listXYZSteps[1] > 0 && listXYZSteps[2] > 0)
+      {
+        Serial.println("case 1");
+        for (long i = 0; i < nowSteps; i++)
+        {
+          digitalWrite(X_STP_Pin, HIGH);
+          digitalWrite(Y_STP_Pin, HIGH);
+          digitalWrite(Z_STP_Pin, HIGH);
+          delayMicroseconds(delayBetweenStep_X);
+          digitalWrite(X_STP_Pin, LOW);
+          digitalWrite(Y_STP_Pin, LOW);
+          digitalWrite(Z_STP_Pin, LOW);
+          delayMicroseconds(delayBetweenStep_X);
+        }
+      }
+      else if(listXYZSteps[0] > 0 && listXYZSteps[1] > 0 && listXYZSteps[2] <= 0)
+      {
+        Serial.println("case 2");
+        for (long i = 0; i < nowSteps; i++)
+        {
+          digitalWrite(X_STP_Pin, HIGH);
+          digitalWrite(Y_STP_Pin, HIGH);
+          delayMicroseconds(delayBetweenStep_X);
+          digitalWrite(X_STP_Pin, LOW);
+          digitalWrite(Y_STP_Pin, LOW);
+          delayMicroseconds(delayBetweenStep_X);
+        }
+      }
+      else if(listXYZSteps[0] > 0 && listXYZSteps[2] > 0 && listXYZSteps[1] <= 0)
+      {
+        Serial.println("case 3");
+        for (long i = 0; i < nowSteps; i++)
+        {
+          digitalWrite(X_STP_Pin, HIGH);
+          digitalWrite(Z_STP_Pin, HIGH);
+          delayMicroseconds(delayBetweenStep_X);
+          digitalWrite(X_STP_Pin, LOW);
+          digitalWrite(Z_STP_Pin, LOW);
+          delayMicroseconds(delayBetweenStep_X);
+        }
+      }
+      else if(listXYZSteps[1] > 0 && listXYZSteps[2] > 0 && listXYZSteps[0] <= 0)
+      {
+        Serial.println("case 4");
+        for (long i = 0; i < nowSteps; i++)
+        {
+          digitalWrite(Y_STP_Pin, HIGH);
+          digitalWrite(Z_STP_Pin, HIGH);
+          delayMicroseconds(delayBetweenStep_Y);
+          digitalWrite(Y_STP_Pin, LOW);
+          digitalWrite(Z_STP_Pin, LOW);
+          delayMicroseconds(delayBetweenStep_Y);
+        }
+      }
+      else
+      {
+        Serial.println("case 5");
+        if(listXYZSteps[0] > 0)
+        {
+          for (long i = 0; i < nowSteps; i++)
+          {
+            digitalWrite(X_STP_Pin, HIGH);
+            delayMicroseconds(delayBetweenStep_X);
+            digitalWrite(X_STP_Pin, LOW);
+            delayMicroseconds(delayBetweenStep_X);
+          }          
+        }
+        else if(listXYZSteps[1] > 0)
+        {
+          for (long i = 0; i < nowSteps; i++)
+          {
+            digitalWrite(Y_STP_Pin, HIGH);
+            delayMicroseconds(delayBetweenStep_Y);
+            digitalWrite(Y_STP_Pin, LOW);
+            delayMicroseconds(delayBetweenStep_Y);
+          }          
+        }
+        else if(listXYZSteps[2] > 0)
+        {
+          for (long i = 0; i < nowSteps; i++)
+          {
+            digitalWrite(Z_STP_Pin, HIGH);
+            delayMicroseconds(delayBetweenStep_Z);
+            digitalWrite(Z_STP_Pin, LOW);
+            delayMicroseconds(delayBetweenStep_Z);
+          }          
+        }        
+      }
+
+      for (size_t k = 0; k < 3; k++)
+      {
+        if(listXYZSteps[k] <= 0) continue;
+
+        listXYZSteps[k]-= nowSteps;
+        listStepsSort[k]-=nowSteps;
+
+        //Position Record
+        switch (k)
+        {
+        case 0:
+          if(MotorCC_X)
+          X_Pos_Now += nowSteps;
+          else
+          X_Pos_Now -= nowSteps;
+
+          break;
+
+        case 1:
+          if(MotorCC_Y)
+          Y_Pos_Now += nowSteps;
+          else
+          Y_Pos_Now -= nowSteps;
+
+          break;
+        case 2:
+          if(MotorCC_Z)
+          Z_Pos_Now += nowSteps;
+          else
+          Z_Pos_Now -= nowSteps;
+
+          break;
+        }
+      }
+    }   
+    
+  }  
+  Serial.println("NowP:" + String(X_Pos_Now) + "," + String(Y_Pos_Now) + "," + String(Z_Pos_Now));
+  DataOutput();
 }
 
 int KeyValueConverter()
@@ -609,7 +813,7 @@ void CleanEEPROM(int startPosition, int datalength)
   {
     EEPROM.write(i, ' ');
   }
-  Serial.println("Clean EEPROM");
+  // Serial.println("Clean EEPROM");
 }
 
 void WriteInfoEEPROM(String data, int start_position)
@@ -1043,7 +1247,8 @@ int Function_Classification(String cmd, int ButtonSelected)
       travel_z = cmd.substring(0, cmd.indexOf('_')).toInt();
       Serial.println(cmd.substring(0, cmd.indexOf('_'))); //xyz
 
-      Move_Motor_abs_all(travel_x, travel_y, travel_z);
+      Move_Motor_abs_all_sync(travel_x, travel_y, travel_z);
+      // Move_Motor_abs_all(travel_x, travel_y, travel_z);
     }
 
 #pragma endregion
@@ -1089,28 +1294,54 @@ int Function_Classification(String cmd, int ButtonSelected)
       }
     }
 
-    // //Set Manual Control Motor Speed
-    else if (Contains(cmd, "SPD "))
+    else if (Contains(cmd, "POS?"))
     {
-      cmd.remove(0, 4);
+      Serial.println("Position:" + String(X_Pos_Now) + "," + String(Y_Pos_Now) + "," + String(Z_Pos_Now));
+    }
+
+    // //Set Manual Control Motor Speed
+    else if (Contains(cmd, "SPD"))
+    {
+      cmd.remove(0, 3);  
 
       if (Contains(cmd, "X"))
       {
-        cmd.remove(0, 2);
+        cmd.remove(0, 3);  //Include empty char deleted
         delayBetweenStep_X = cmd.toInt();
         WR_EEPROM(48, cmd);
       }
       else if (Contains(cmd, "Y"))
       {
-        cmd.remove(0, 2);
+        cmd.remove(0, 3);  //Include empty char deleted
         delayBetweenStep_Y = cmd.toInt();
         WR_EEPROM(56, cmd);
 
       }
       else if (Contains(cmd, "Z"))
       {
-        cmd.remove(0, 2);
+        cmd.remove(0, 3);  //Include empty char deleted
         delayBetweenStep_Z = cmd.toInt();
+        WR_EEPROM(64, cmd);
+      }
+      else if (Contains(cmd, "?"))
+      {
+        Serial.println("Motor Speed (x, y, z): (" 
+          + ReadInfoEEPROM(48, 8)
+          + ","
+          + ReadInfoEEPROM(56, 8)
+          + ","
+          + ReadInfoEEPROM(64, 8)
+          + ")"
+          );
+      }
+      else
+      {
+        int dbt = cmd.toInt();
+        delayBetweenStep_Y = dbt;
+        delayBetweenStep_Z = dbt;
+        delayBetweenStep_Z = dbt;
+        WR_EEPROM(48, cmd);
+        WR_EEPROM(56, cmd);
         WR_EEPROM(64, cmd);
       }
 
@@ -1143,6 +1374,27 @@ int Function_Classification(String cmd, int ButtonSelected)
       }
 
       Serial.println("Set Manual Control Motor Speed:" + cmd);
+    }
+
+    else if (Contains(cmd, "GSP "))
+    {
+      cmd.remove(0, 4);
+      if(cmd == "1")
+      {
+        Move_Motor_abs_all_sync(Pos_1_Record.X_Pos, Pos_1_Record.Y_Pos, Pos_1_Record.Z_Pos);
+      }
+      else if (cmd =="2")
+      {
+        Move_Motor_abs_all_sync(Pos_2_Record.X_Pos, Pos_2_Record.Y_Pos, Pos_2_Record.Z_Pos);
+      }
+      else if (cmd =="3")
+      {
+        Move_Motor_abs_all_sync(Pos_3_Record.X_Pos, Pos_3_Record.Y_Pos, Pos_3_Record.Z_Pos);
+      }
+      else if (cmd =="4")
+      {
+        Move_Motor_abs_all_sync(Pos_4_Record.X_Pos, Pos_4_Record.Y_Pos, Pos_4_Record.Z_Pos);
+      }
     }
 
      else if (Contains(cmd, "SAVE "))
@@ -1226,6 +1478,7 @@ int Function_Classification(String cmd, int ButtonSelected)
       WR_EEPROM(80, String(Y_Pos_Now));
       WR_EEPROM(88, String(Z_Pos_Now));
       Serial.println("Save Pos 1");
+      delay(500);
       break;
 
     case 1008:
@@ -1236,6 +1489,7 @@ int Function_Classification(String cmd, int ButtonSelected)
       WR_EEPROM(104, String(Y_Pos_Now));
       WR_EEPROM(112, String(Z_Pos_Now));
       Serial.println("Save Pos 2");
+      delay(500);
       break;
 
     case 1009:
@@ -1246,6 +1500,7 @@ int Function_Classification(String cmd, int ButtonSelected)
       WR_EEPROM(128, String(Y_Pos_Now));
       WR_EEPROM(136, String(Z_Pos_Now));
       Serial.println("Save Pos 3");
+      delay(500);
       break;
 
     // case 1006:
@@ -1284,25 +1539,24 @@ int Function_Excecutation(String cmd, int cmd_No)
       switch (cmd_No)
       {
         //Function 1: Auto Align
-      case 1: /* Auto Align */
-        Move_Motor_abs_all(Pos_1_Record.X_Pos, Pos_1_Record.Y_Pos, Pos_1_Record.Z_Pos);
+      case 1: /* Go to saved position 1 */
+        // Move_Motor_abs_all(Pos_1_Record.X_Pos, Pos_1_Record.Y_Pos, Pos_1_Record.Z_Pos);
+        Move_Motor_abs_all_sync(Pos_1_Record.X_Pos, Pos_1_Record.Y_Pos, Pos_1_Record.Z_Pos);
         cmd_No = 0;
         break;
 
-        //Function 2: Fine Scan
-      case 2: /* Fine Scan */
-        Move_Motor_abs_all(Pos_2_Record.X_Pos, Pos_2_Record.Y_Pos, Pos_2_Record.Z_Pos);
+      case 2: /* Go to saved position 2 */
+        Move_Motor_abs_all_sync(Pos_2_Record.X_Pos, Pos_2_Record.Y_Pos, Pos_2_Record.Z_Pos);
         cmd_No = 0;
         break;
 
-      //Function 3: Auto Curing
-      case 3: /* Auto Curing */
-        Move_Motor_abs_all(Pos_3_Record.X_Pos, Pos_3_Record.Y_Pos, Pos_3_Record.Z_Pos);
+      case 3: /* Go to saved position 3 */
+        Move_Motor_abs_all_sync(Pos_3_Record.X_Pos, Pos_3_Record.Y_Pos, Pos_3_Record.Z_Pos);
         cmd_No = 0;
         break;
 
-      case 1006: /* Auto Curing */
-        Move_Motor_abs_all(Pos_4_Record.X_Pos, Pos_4_Record.Y_Pos, Pos_4_Record.Z_Pos);
+      case 1006: /* Go to saved position 4 */
+        Move_Motor_abs_all_sync(Pos_4_Record.X_Pos, Pos_4_Record.Y_Pos, Pos_4_Record.Z_Pos);
         cmd_No = 0;
         break;
 
@@ -1657,41 +1911,6 @@ int Function_Excecutation(String cmd, int cmd_No)
 }
 
 //------------------------------------------------------------------------------------------------------------------------------------------
-
-void BLE_Function(String cmd)
-{
-  //Bluetooth : Receive Data
-  // if (cmd == "" && cmd_No == 0)
-  // {
-  //   // Serial.println("BLE mode");
-  //   if (BT.connected(30))
-  //   {
-  //     isMsgShow = true;
-
-  //     if (BT.available())
-  //     {
-  //       String BTdata = BT.readString();
-
-  //       BT.println(BTdata);
-  //       Serial.println(BTdata);
-
-  //       if (BTdata == "Z+")
-  //       {
-  //         Move_Motor(Z_DIR_Pin, Z_STP_Pin, true, 500, 8, 150, true);
-  //       }
-  //       else if (BTdata == "Z-")
-  //       {
-  //         Move_Motor(Z_DIR_Pin, Z_STP_Pin, true, 500, 8, 150, true);
-  //       }
-  //     }
-  //   }
-  // }
-
-  // if (ButtonSelected < 0 && cmd == "")
-  // {
-  //   cmd_No = 0;
-  // }
-}
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
